@@ -6,10 +6,10 @@ This program extracts and cleans metadata
 @author: svanhmic
 '''
 
+import numpy as np
 import sys
 import string
-from pyspark.ml.linalg import VectorUDT
-
+import itertools
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
@@ -18,7 +18,10 @@ from pyspark import SparkContext
 from pyspark.sql import Row, Column
 from pyspark.sql.types import StringType, ArrayType, StructField, StructType
 from pyspark.sql.functions import explode, udf,coalesce
-from pyspark.mllib.linalg import SparseVector, VectorUDT
+from pyspark.mllib.linalg import SparseVector, VectorUDT, Vectors
+from pyspark.mllib.stat._statistics import Statistics
+from pyspark.mllib.linalg.distributed import RowMatrix, IndexedRowMatrix,\
+    IndexedRow
 
 fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
 virksomheder = "/c1p_virksomhed.json"
@@ -29,20 +32,19 @@ onePercent = "/c1p.json"
 sc = SparkContext("local[8]","partionedCvr")
 sqlContext = SQLContext(sc)
 
-def parseMetaData(col1,col2):
-    if col1 is None  or col2 is None:
-        bigRow = 0
-    else:
-        bigRow = []
-        bigRow.append(col1)
-        bigRow.append(col2)
-    return bigRow
-
 def columnsToList(row):
-    #converts a flat dataframe with columns to a data frame with one column with lists as rows.
-    #args df dataframe with data
-    #output df with one column containing list with previous columns
-    #colList = df.columns
+    """ Converts a flat dataframe with columns to a data frame with one column with lists as rows.
+        
+        Note:
+        
+        
+        Args: 
+            row, a row containing data in columns
+        
+        Returns:
+            A row containing one column containing a list, where each element in the list is an column from the input row
+    
+    """
     featlist=[x for x in row]
     for (i,f) in enumerate(featlist):
         if f == None:
@@ -72,7 +74,7 @@ def bagOfWords(rawFeats, bagDict,lenOfDicts):
         else:
             dicts[bagDict.value[x]] += 1   
         
-    return SparseVector(lenOfDicts,dicts)
+    return Vectors.sparse(lenOfDicts,dicts)
     
 def bagOfWordsGenerator(broadcastDictOfWords):
     """ Generates UDF on bag of words from a list of raw words and a dictionary
@@ -90,7 +92,6 @@ def bagOfWordsGenerator(broadcastDictOfWords):
 
 
 columnsToListUDF = udf(columnsToList,StringType())
-parseMetaDataUDF = udf(parseMetaData, ArrayType(StringType(),containsNull=True))
     
 
 rawData = sqlContext.read.format("json").load(fileStr+onePercent) # loads the subsample of virksomheder
@@ -99,7 +100,7 @@ virkData = (rawData
             .select(rawData["_source"]["Vrvirksomhed"].alias("virksomhed"))
             )
 virkMetaData = (virkData.select(virkData["virksomhed"]["virksomhedMetadata"].alias("virkmetadata"))).cache() #exectracts metadata
-virkNulldf = virkMetaData.select(virkMetaData["virkmetadata"].isNull().alias("isnull"),virkMetaData["virkmetadata"])
+#virkNulldf = virkMetaData.select(virkMetaData["virkmetadata"].isNull().alias("isnull"),virkMetaData["virkmetadata"])
 #virkNulldf.printSchema()
 
 #normalize the entire metadataset
@@ -151,6 +152,7 @@ virkDataDf = virkMetaData.select( virkMetaData["virkmetadata"]["antalPenheder"].
                                  ,virkMetaData["virkmetadata"]["virkningsDato"].alias("virkningsDato")
                                  )
 #virkDataDf.show(truncate=False)
+#print virkDataDf.count()
 
 oneColsVirkDf = virkDataDf.rdd.map(lambda x:columnsToList(x)).toDF()
 #print type(oneColsVirkDf)
@@ -159,7 +161,7 @@ oneColsVirkDf = virkDataDf.rdd.map(lambda x:columnsToList(x)).toDF()
 #    print type(i)
 
 explodedVirkMetaData = oneColsVirkDf.select(explode(oneColsVirkDf["featlist"]).alias("featlist")).distinct()
-explodedVirkMetaData.show(truncate=False)
+#explodedVirkMetaData.show(truncate=False)
 print "explodedVirkMetaData length", len(explodedVirkMetaData.collect())
 
 virkMetaDataDict = (explodedVirkMetaData
@@ -177,6 +179,33 @@ broadcastVirkMetaDataDict = sc.broadcast(virkMetaDataDict)
 
 bagOfWordsUDF = bagOfWordsGenerator(broadcastVirkMetaDataDict)
 featuresDF = oneColsVirkDf.select(bagOfWordsUDF(oneColsVirkDf["featlist"]).alias("features"))
+#normedFeatures = (featuresDF
+#                  .rdd
+#                  .map(lambda fet: (float(fet["features"].norm(2)),fet["features"]))
+#                  .toDF(["norm","features"])) # computes the norm for each vector
+
+Rmatrix = RowMatrix(featuresDF.rdd.map(lambda row: row["features"]))
+
+IndexedVectors = featuresDF.rdd.map(lambda row: row["features"]).zipWithIndex().map(lambda x: IndexedRow(x[1],x[0]))
+IndexedRowMat = IndexedRowMatrix(IndexedVectors)
+CoordinateMat = IndexedRowMat.toCoordinateMatrix()
+transposed_CoordinateMat = CoordinateMat.transpose()
+transposed_IndexRowMat = transposed_CoordinateMat.toIndexedRowMatrix()
+columnSims = transposed_IndexRowMat.columnSimilarities()
+
+print columnSims.toRowMatrix().rows.take(10)
+
+#print cosSimiliarity.numCols()
+#print cosSimiliarity.numRows()
+#print type(cosSimiliarity)
+#rows = sc.parallelize([[1, 2], [1, 5]])
+#print cosSimiliarity.toRowMatrix().rows.take(10)
+#print rows.collect()
+#print mat
+
+#print featuresDF.rdd.take(1)
+
+#columnStatistics = Statistics.colStats(featuresDF.rdd.map(lambda x: x["features"]))
 #featuresDF.show(truncate=False)
 
 
