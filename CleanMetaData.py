@@ -191,10 +191,12 @@ IndexedRowMat = IndexedRowMatrix(IndexedVectors)
 CoordinateMat = IndexedRowMat.toCoordinateMatrix()
 transposed_CoordinateMat = CoordinateMat.transpose()
 transposed_IndexRowMat = transposed_CoordinateMat.toIndexedRowMatrix()
-columnSims = transposed_IndexRowMat.columnSimilarities()
+columnSims = transposed_IndexRowMat.columnSimilarities().toIndexedRowMatrix()
 
-print columnSims.toRowMatrix().rows.take(10)
-
+columSimsRDD = columnSims.rows
+print type(columSimsRDD)
+print "cosine similarities rows: ",columnSims.rows
+print "cosine similarities columns: ",columnSims.columns
 #print cosSimiliarity.numCols()
 #print cosSimiliarity.numRows()
 #print type(cosSimiliarity)
