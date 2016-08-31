@@ -8,6 +8,9 @@ import numpy as np
 import sys
 import itertools
 from string import lower
+from pyspark.sql.functions import udf
+from pyspark.sql.types import DoubleType, ArrayType
+from array import ArrayType
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
@@ -15,13 +18,15 @@ from pyspark import SQLContext
 from pyspark import SparkContext
 from pyspark.sql import Row
 import pyspark.sql.functions as F
-from pyspark.mllib.linalg import SparseVector,Vectors,VectorUDT
-from pyspark.ml.feature import VectorAssembler, StandardScalerModel
+from pyspark.ml.linalg import SparseVector,Vectors,VectorUDT
+from pyspark.ml.feature import VectorAssembler, StandardScalerModel,StandardScaler
 from pyspark.ml.clustering import KMeansModel, KMeans
+
+import scipy.sparse as sps
 
 
 fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
-modelPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/KmeansCvr"
+modelPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/"
 scalerPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/StandardScalaer"
 virksomheder = "/c1p_virksomhed.json"
 alleVirksomheder = "/AlleDatavirksomheder.json"
@@ -112,27 +117,6 @@ def createSparseVector(array):
         output.append(Row(cluster=idx,coordinates=SparseVector(length,dic)))
     return output
 
-
-def createSparseVector(array):
-    ''' Takes a vector or list of vectors numpy.array and converts them into sparse vectors
-        
-    Note: This is an np.matrix
-    Args:
-        
-        
-    Output:     
-    ''' 
-    
-    output = []
-    for idx,row in enumerate(array):
-        dic = {}
-        length = len(row)
-        for j,elem in enumerate(row):
-            if elem > 0.0:
-                dic[j] = elem
-        output.append(Row(cluster=idx,coordinates=SparseVector(length,dic)))
-    return output
-
 def createDenseVector(SparseVectorDf):
     
     size = SparseVectorDf.size
@@ -172,72 +156,56 @@ def absSubtract(v1, v2):
 
 absSubUDF = F.udf(absSubtract,VectorUDT())
 
-    
-    
+def computeDistance(col):
+    assert isinstance(col, SparseVector), "Wrong! " + str(type(col))
+    return float(col.norm(2))
 
-def distanceToCenter(point,center):
-    try:
-        dist = np.sqrt(point.squared_distance(center))
-    except:
-        print "center point", center
-        print "\n point ", point
-        print "\n length center " , len(center) , "\n length of point vector : " , len(point)
-        return 0
-    return dist
-    
-def computedistances(pointsRDD,center):
-    
-    return distanceToCenter(pointsRDD, center)
+computeEucleadianDist = F.udf(computeDistance,DoubleType())
 
-virkData = sqlContext.read.format("json").load(fileStr+"/virksomhedersMetadata.json") # loads the subsample of virksomheder  alleVirksomheder
-virkDataColumns = virkData.columns
-#print virkDataColumns
+def convertToSparse(size,indices,vals):
+    assert len(indices) == len(vals) , "The lengths mismatch: " + str(len(indices)) + ", " + str(len(vals))
+    return SparseVector(size,indices,vals)
 
-virkData = sqlContext.read.format("json").load(fileStr+"/virksomhedersMetadata.json") # loads the subsample of virksomheder  alleVirksomheder
+convertUdfToSparse = F.udf(convertToSparse,VectorUDT())
 
-pivotFeaturesTemp = createPivotDataset(virkData)
-columns = ["nPenheder","antalAnsatte","stiftelsesAar"]
-pivotFeatures = ImputerMean(pivotFeaturesTemp,columns)
-pivotCols = pivotFeatures.columns
-pivotCols.remove("Index")
-pivotCols.remove("cvrnummer")
-#print pivotCols
-#pivotFeatures.show(1,truncate=False)
+def toA(col):
+    return col.toArray()
 
-vectorizer = VectorAssembler()
-vectorizer.setInputCols(pivotCols) # sets the input cols names as input to the method
-vectorizer.setOutputCol('features') # names the output col: Features
-vectorOutput = vectorizer.transform(pivotFeatures) # converts the dataframe of cols to a dataframe with one col containing vector
-vectorOutput.show(1,truncate=False)
+def sparseSum(rdd):
+    return np.sum(rdd) 
 
-ScalerModel = StandardScalerModel.load(scalerPath)
-ScaledFeatursDf = ScalerModel.transform(vectorOutput)
-ScaledFeatursDf.show(1,truncate=False)
 
-loadKmeans = KMeans.read().load(modelPath)
-prediction = loadKmeans.transform(ScaledFeatursDf)
-wssse = loadKmeans.computeCost(ScaledFeatursDf) #computes the within sum of squares error
+pivotFeatures = sqlContext.read.format("json").load(fileStr+"/pivotMetaData.json") # loads the subsample of virksomheder  alleVirksomheder
+lScaledFeatures = sqlContext.read.format("json").load(fileStr+"/ScaldMetaData.json")
+ScaledF = lScaledFeatures.select(lScaledFeatures["Index"],convertUdfToSparse(lScaledFeatures["scaledfeatures"]["size"]
+                                                                             ,lScaledFeatures["scaledfeatures"]["indices"]
+                                                                             ,lScaledFeatures["scaledfeatures"]["values"]).alias("scaledfeatures"))
+#ModelScaler = StandardScaler(withMean=False,inputCol="features",outputCol="scaledfeatures").fit(ScaledF)
+#ScaledF = ModelScaler.transform(ScaledF)
+#print ScaledF.take(2)
+
+loadKmeansModel = KMeansModel.read().load(modelPath+"Kmeans_Cvr_Model")
+loadKmeans = KMeans.read().load(modelPath+"Kmeans_Cvr")
+prediction = loadKmeansModel.transform(ScaledF)
+#newModel = KMeans(featuresCol="scaledfeatures", predictionCol="predict", k=2, initMode="random")
+#clusters = newModel.fit(ScaledF)
+wssse = loadKmeansModel.computeCost(ScaledF) #computes the within sum of squares error
 print("Within Set Sum of Squared Errors for k: "+ str(loadKmeans.getK()) +"  = " + str(wssse))
 #print prediction.show(1,truncate=False)    
  
-clusterCenters = loadKmeans.clusterCenters()
+clusterCenters = loadKmeansModel.clusterCenters()
 sparseClusterDf = sqlContext.createDataFrame(createSparseVector(clusterCenters))
-#sparseClusterDf.show(truncate=False)
+#sparseClusterDf.show(1,truncate=False)
  
 appendCentersDf = (prediction.select(prediction["Index"],prediction["scaledfeatures"],prediction["prediction"])
                    .join(sparseClusterDf,prediction["prediction"] == sparseClusterDf["cluster"],"inner")
                     )
-print appendCentersDf.take(2)
-print appendCentersDf.dtypes
-#test =  appendCentersDf.select(appendCentersDf["Index"],absSubUDF(appendCentersDf["scaledfeatures"],appendCentersDf["coordinates"]))
-#test.show(1,truncate=False)
-#predictionDist = (prediction
-#                  .rdd
-#                  .map(lambda x: (x["Index"],float(computedistances(x["scaledfeatures"],clusterCenters[x["prediction"]]))))
-#                  ).toDF(["Index","distance2center"])
-#                   
-# 
-# 
+#print appendCentersDf.dtypes
+featureDistanceRDD = appendCentersDf.rdd.map(lambda x: Row(Index=x["Index"],FeatureContribution=absSubtract(x["scaledfeatures"],x["coordinates"]),Prediction=x["prediction"]))#.toDF(["Index","FeatureContribution","prediction"])
+distDf = featureDistanceRDD.map(lambda x: Row(Index=x["Index"],FeatureContribution=x["FeatureContribution"],Prediction=x["Prediction"],Distance=computeDistance(x["FeatureContribution"]))).toDF()
+#distDf.show(1)
+featContri = distDf.rdd.map(lambda x: Row(p=x["Prediction"],f=Vectors.dense(toA(x["FeatureContribution"])))).toDF() # creates dense vector
+featContri.show(1)
 #predictAndDist = prediction.join(predictionDist,prediction.Index == predictionDist.Index,'inner').drop(predictionDist.Index)
 #predictAndDist.show(1)
 #orderedPredictedDist = predictAndDist.orderBy(predictAndDist["distance2center"],ascending=False)

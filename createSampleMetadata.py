@@ -101,33 +101,32 @@ def getIndex(rdd):
         r.append(i)
     return r
 
-
 virkData = sqlContext.read.format("json").load(fileStr+alleVirksomheder) # loads the subsample of virksomheder  alleVirksomheder
-virkMetaData = (virkData.select(virkData["virksomhed"]["virksomhedMetadata"].alias("virkmetadata")
-                                ,virkData["virksomhed"]["cvrNummer"].alias("cvrnummer")
-                                ,virkData["virksomhed"]["virksomhedsstatus"].alias("virksomhedsstatus")
-                                ,virkData["virksomhed"]["reklamebeskyttet"].alias("reklamebeskyttet")
-                                ,virkData["virksomhed"]["brancheAnsvarskode"].alias("brancheAnsvarskode")
-                                )) #exectracts metadata
+virkDataTemp = virkData.select(virkData["virksomhed"]["virksomhedMetadata"].alias("metadata")
+                               ,virkData["virksomhed"]["virksomhedsstatus"].alias("virksomhedsstatus")
+                               ,virkData["virksomhed"]["brancheAnsvarskode"].alias("brancheAnsvarskode")
+                               ,virkData["virksomhed"]["reklamebeskyttet"].alias("reklamebeskyttet")
+                               ,virkData["virksomhed"]["cvrnummer"].alias("cvrnummer"))
 
-virkDataDf = virkMetaData.select( virkMetaData["virkmetadata"]["antalPenheder"].alias("nPenheder")
-                                 ,virkMetaData["virkmetadata"]["nyesteAarsbeskaeftigelse"]["intervalKodeAntalAnsatte"].alias("aarsbeskfansat")
-                                 ,virkMetaData["virkmetadata"]["nyesteBibranche1"]["branchekode"].alias("branchekode1")   
-                                 ,virkMetaData["virkmetadata"]["nyesteBibranche1"]["branchetekst"].alias("branchetekst1")
-                                 ,virkMetaData["virkmetadata"]["nyesteBibranche2"]["branchekode"].alias("branchekode2")
-                                 ,virkMetaData["virkmetadata"]["nyesteBibranche2"]["branchetekst"].alias("branchetekst2")
-                                 ,virkMetaData["virkmetadata"]["nyesteBibranche3"]["branchekode"].alias("branchekode3")
-                                 ,virkMetaData["virkmetadata"]["nyesteBibranche3"]["branchetekst"].alias("branchetekst3")                                     
-                                 ,virkMetaData["virkmetadata"]["nyesteHovedbranche"]["branchekode"].alias("hovedbranchekode")
-                                 ,virkMetaData["virkmetadata"]["nyesteStatus"]["statuskode"].alias("statuskode")
-                                 ,virkMetaData["virkmetadata"]["nyesteVirksomhedsform"]["langBeskrivelse"].alias("langBeskrivelse")
-                                 ,virkMetaData["virkmetadata"]["nyesteVirksomhedsform"]["virksomhedsformkode"].alias("virksomhedsformkode")
-                                 ,virkMetaData["virkmetadata"]["sammensatStatus"].alias("sammensatStatus")
-                                 ,virkMetaData["virkmetadata"]["stiftelsesDato"].alias("stiftelsesDato")
-                                 ,virkMetaData["cvrnummer"]
-                                 ,virkMetaData["virksomhedsstatus"]
-                                 ,virkMetaData["brancheAnsvarskode"]
-                                 ,virkMetaData["reklamebeskyttet"].cast('integer').alias("reklamebeskyttet")
+
+virkDataDf = virkDataTemp.select( virkDataTemp["metadata"]["antalPenheder"].alias("nPenheder")
+                                 ,virkDataTemp["metadata"]["nyesteAarsbeskaeftigelse"]["intervalKodeAntalAnsatte"].alias("aarsbeskfansat")
+                                 #,virkDataTemp["metadata"]["nyesteBibranche1"]["branchekode"].alias("branchekode1")   
+                                 #,virkDataTemp["metadata"]["nyesteBibranche1"]["branchetekst"].alias("branchetekst1")
+                                 #,virkDataTemp["metadata"]["nyesteBibranche2"]["branchekode"].alias("branchekode2")
+                                 #,virkDataTemp["metadata"]["nyesteBibranche2"]["branchetekst"].alias("branchetekst2")
+                                 #,virkDataTemp["metadata"]["nyesteBibranche3"]["branchekode"].alias("branchekode3")
+                                 #,virkDataTemp["metadata"]["nyesteBibranche3"]["branchetekst"].alias("branchetekst3")                                     
+                                 #,virkDataTemp["metadata"]["nyesteHovedbranche"]["branchekode"].alias("hovedbranchekode")
+                                 #,virkDataTemp["metadata"]["nyesteStatus"]["statuskode"].alias("statuskode")
+                                 ,virkDataTemp["metadata"]["nyesteVirksomhedsform"]["langBeskrivelse"].alias("langBeskrivelse")
+                                 ,virkDataTemp["metadata"]["nyesteVirksomhedsform"]["virksomhedsformkode"].alias("virksomhedsformkode")
+                                 ,virkDataTemp["metadata"]["sammensatStatus"].alias("sammensatStatus")
+                                 ,virkDataTemp["metadata"]["stiftelsesDato"].alias("stiftelsesDato")
+                                 ,virkDataTemp["cvrnummer"]
+                                 ,virkDataTemp["virksomhedsstatus"]
+                                 ,virkDataTemp["brancheAnsvarskode"]
+                                 ,virkDataTemp["reklamebeskyttet"].cast('integer').alias("reklamebeskyttet")
                                  )
 #print virkDataDf.dtypes
 #virkDataDf.show(truncate=False)
@@ -156,5 +155,9 @@ cleanedVirkDf = sqlContext.createDataFrame(IndexedVirkDf,["Index","cvrnummer","n
                                                           ,"brancheAnsvarskode","sammensatStatus"
                                                           #,"virksomhedsformkode"
                                                           ,"stiftelsesAar","virksomhedsstatus","reklamebeskyttet"])
+
+#virkData.printSchema()
+
+#data is pivoted doing the "bag of words" and afterwards doing an imputer mean which substitutes a mean value for a column in an null value element of that col.
 
 cleanedVirkDf.write.json(fileStr+"/virksomhedersMetadata.json",mode="overwrite")

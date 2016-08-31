@@ -28,13 +28,8 @@ import matplotlib.mlab as mlab
 
 
 fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
-modelPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/KmeansCvr"
+modelPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/"
 scalerPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/StandardScalaer"
-virksomheder = "/c1p_virksomhed.json"
-alleVirksomheder = "/AlleDatavirksomheder.json"
-produktionsenhed = "/c1p_produktionsenhed.json"
-deltager = "/c1p_deltager.json"
-onePercent = "/c1p.json"
 
 sc = SparkContext("local[8]","clustermodel")
 sqlContext = SQLContext(sc)
@@ -99,6 +94,7 @@ def ImputerMean(df,cols):
         df = df.fillna(describe,c)
     return df
 
+virkData = sqlContext.read.format("json").load(fileStr+"/virksomhedersMetadata.json") # loads the subsample of virksomheder  alleVirksomheder
 #virkData.printSchema()
 
 #data is pivoted doing the "bag of words" and afterwards doing an imputer mean which substitutes a mean value for a column in an null value element of that col.
@@ -108,18 +104,22 @@ pivotFeatures = ImputerMean(pivotFeaturesTemp,columns)
 pivotCols = pivotFeatures.columns
 pivotCols.remove("Index")
 pivotCols.remove("cvrnummer")
+pivotFeatures.write.json(fileStr+"/pivotMetaData.json",mode="overwrite") # write the raw feature data to json file
 #print pivotCols
 #pivotFeatures.show(1,truncate=False)
 
 vectorizer = VectorAssembler()
 vectorizer.setInputCols(pivotCols) # sets the input cols names as input to the method
 vectorizer.setOutputCol('features') # names the output col: Features
-vectorOutput = vectorizer.transform(pivotFeatures) # converts the dataframe of cols to a dataframe with one col containing vector
-vectorOutput.show(1,truncate=False)
+tempVectorOutput = vectorizer.transform(pivotFeatures) # converts the dataframe of cols to a dataframe with one col containing vector
+vectorOutput = tempVectorOutput.select(tempVectorOutput["Index"],tempVectorOutput["features"])
+
 
 scaledModel = StandardScaler(withMean=False,inputCol=vectorizer.getOutputCol(),outputCol="scaledfeatures").fit(vectorOutput) # Generates a model for scaled data arround mean and with std
 scaledOutput = scaledModel.transform(vectorOutput)
 scaledFeatures = scaledOutput.drop(scaledOutput["features"])
+scaledFeatures.show(1,truncate=False)
+scaledFeatures.write.json(fileStr+"/ScaldMetaData.json",mode="overwrite")
 scaledModel.write().overwrite().save(scalerPath)
 #print scaledFeatures.show(1,truncate=False)
 
@@ -139,4 +139,5 @@ kmeans = KMeans(k=2, maxIter=10,featuresCol="scaledfeatures",initMode="random")
 #print bestFit[0] , bestFit[1]
 kmeans.setK(params[1])
 clusters = kmeans.fit(scaledFeatures)
-clusters.write().overwrite().save(modelPath)
+kmeans.write().overwrite().save(modelPath+"Kmeans_Cvr")
+clusters.write().overwrite().save(modelPath+"Kmeans_Cvr_Model")
