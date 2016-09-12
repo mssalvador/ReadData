@@ -22,7 +22,8 @@ from pyspark.ml.linalg import SparseVector,Vectors,VectorUDT
 from pyspark.ml.feature import VectorAssembler, StandardScalerModel,StandardScaler
 from pyspark.ml.clustering import KMeansModel, KMeans
 
-import scipy.sparse as sps
+import matplotlib.pyplot as plt 
+import matplotlib.mlab as mlab
 
 
 fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
@@ -174,12 +175,13 @@ def toA(col):
 def sparseSum(rdd):
     return np.sum(rdd) 
 
-
+virkData = sqlContext.read.format("json").load(fileStr+"/virksomhedersMetadata.json")
 pivotFeatures = sqlContext.read.format("json").load(fileStr+"/pivotMetaData.json") # loads the subsample of virksomheder  alleVirksomheder
 lScaledFeatures = sqlContext.read.format("json").load(fileStr+"/ScaldMetaData.json")
 ScaledF = lScaledFeatures.select(lScaledFeatures["Index"],convertUdfToSparse(lScaledFeatures["scaledfeatures"]["size"]
                                                                              ,lScaledFeatures["scaledfeatures"]["indices"]
                                                                              ,lScaledFeatures["scaledfeatures"]["values"]).alias("scaledfeatures"))
+
 #ModelScaler = StandardScaler(withMean=False,inputCol="features",outputCol="scaledfeatures").fit(ScaledF)
 #ScaledF = ModelScaler.transform(ScaledF)
 #print ScaledF.take(2)
@@ -200,38 +202,53 @@ sparseClusterDf = sqlContext.createDataFrame(createSparseVector(clusterCenters))
 appendCentersDf = (prediction.select(prediction["Index"],prediction["scaledfeatures"],prediction["prediction"])
                    .join(sparseClusterDf,prediction["prediction"] == sparseClusterDf["cluster"],"inner")
                     )
+
+
+
 #print appendCentersDf.dtypes
 featureDistanceRDD = appendCentersDf.rdd.map(lambda x: Row(Index=x["Index"],FeatureContribution=absSubtract(x["scaledfeatures"],x["coordinates"]),Prediction=x["prediction"]))#.toDF(["Index","FeatureContribution","prediction"])
 distDf = featureDistanceRDD.map(lambda x: Row(Index=x["Index"],FeatureContribution=x["FeatureContribution"],Prediction=x["Prediction"],Distance=computeDistance(x["FeatureContribution"]))).toDF()
-#distDf.show(1)
-featContri = distDf.rdd.map(lambda x: Row(p=x["Prediction"],f=Vectors.dense(toA(x["FeatureContribution"])))).toDF() # creates dense vector
-featContri.show(1)
+distIndexDf = distDf.drop(distDf["FeatureContribution"]).cache()
+#sortedDistDf = virkData.join(distIndexDf,distIndexDf["Index"]==virkData["Index"],"inner").drop(distIndexDf["Index"]).orderBy(distIndexDf["Distance"].desc())
+#sortedDistDf.show(15,truncate=False)
+
+#featContri = distDf.rdd.map(lambda x: Row(p=x["Prediction"],f=Vectors.dense(toA(x["FeatureContribution"])))).toDF() # creates dense vector
+#featContri = distDf.rdd.map(lambda x: (x["Prediction"],toA(x["FeatureContribution"]))).filter(lambda x: x[0] == 0)# creates dense vector
+#featsforone = featContri.collect()
 #predictAndDist = prediction.join(predictionDist,prediction.Index == predictionDist.Index,'inner').drop(predictionDist.Index)
 #predictAndDist.show(1)
 #orderedPredictedDist = predictAndDist.orderBy(predictAndDist["distance2center"],ascending=False)
 
 #create the figure with subplots over distances to centers for each cluster.
-# fig = plt.figure()
+filteredPreds = distIndexDf.filter(distIndexDf["Prediction"] == 2).select(distIndexDf["Distance"]).rdd.map(lambda x: x["Distance"]).collect()
+#print filteredPreds
+plt.figure()
+n, bins, patches = plt.hist(filteredPreds,bins=np.logspace(0, 8, 100), facecolor='green', alpha=0.75)
+plt.ylabel('Absolute Frequency')
+plt.yscale('symlog')
+plt.xlabel('log distance to center')
+plt.xscale('log')
+plt.title(r'Distance from observation to cluster center: 2')
+plt.show()
 # c = 1
 # fileSt = open(fileStr+"/results/test.csv","a+")
-# for i in range(kmeans.getK()):
-#     filteredPreds = predictAndDist.filter(predictAndDist["prediction"] == i).cache()
-#     distances = filteredPreds.select(predictAndDist["distance2center"]).collect()
-#     orderDists = (filteredPreds
-#                   .orderBy(filteredPreds["distance2center"],ascending=False)
-#                   .select(filteredPreds["cvrnummer"],log(filteredPreds["distance2center"]).alias("distance2center"))).take(20)
-#     fileSt.write("cvr;afstand;cluster;"+str(i)+"\n")
-#     for j in orderDists:
-#         fileSt.write(str(j["cvrnummer"])+";"+str(j["distance2center"])+"\n")
+# for i in range(loadKmeans.getK()):
+#     filteredPreds = distIndexDf.filter(distIndexDf["Prediction"] == i).cache()
+#     distances = filteredPreds.select(distIndexDf["Distance"]).collect()
+#     #orderDists = (filteredPreds
+#     #              .orderBy(filteredPreds["Distance"],ascending=False)
+#     #              .select(filteredPreds["cvrnummer"],F.log(filteredPreds["distance2center"]).alias("distance2center"))).take(20)
+#     #fileSt.write("cvr;afstand;cluster;"+str(i)+"\n")
+#     #for j in orderDists:
+#     #    fileSt.write(str(j["cvrnummer"])+";"+str(j["distance2center"])+"\n")
 #     fig = plt.subplot(3,3,c)
-#     n, bins, patches = plt.hist(np.log(distances), 50, facecolor='green', alpha=0.75)
+#     n, bins, patches = plt.hist(np.log(distances), 100, facecolor='green', alpha=0.75)
 #     plt.ylabel('log antal')
 #     plt.yscale('log', nonposy='clip')
 #     plt.xlabel('log afstande til centrum')
 #     plt.title(r'Afstand fra center til cluster-punkter cluster: %s '%(str(i)))
 #     c += 1
 # fileSt.close()
-# plt.show()
-#fig.savefig(fileStr+"/results/hist.png")
+plt.show()
 #orderedPredictedDist.drop(orderedPredictedDist["scaledfeatures"]).show(truncate=False)
 #orderedPredictedDist.write.csv(fileStr+"results",mode="overwrite")   
