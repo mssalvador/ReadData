@@ -16,14 +16,14 @@ fileStr = ""
 
 if len(sys.argv) == 0:
     fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata/cdata-permanent.json"
-else
+else:
     fileStr = sys.argv[1]
 
 
-dataF = sqlContext.read.json()
+dataF = sqlContext.read.json(fileStr)
 virksomhedsData =  dataF.filter(dataF._type == 'virksomhed').select(dataF['_source']["Vrvirksomhed"].alias("virksomhed"))
 virksomhedsData.printSchema()
-print dataF.count()
+print(dataF.count())
 types = dataF.select(dataF._type).distinct().collect()
 
 #virkNumb = dataF.filter(dataF._type == 'virksomhed').select('_source.Vrvirksomhed.cvrNummer').persist()
