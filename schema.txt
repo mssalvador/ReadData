@@ -1,0 +1,10 @@
+root                                                                            
+ |-- _id: string (nullable = true)
+ |-- _index: string (nullable = true)
+ |-- _score: long (nullable = true)
+ |-- _source: struct (nullable = true)
+ |    
+ |-- _type: string (nullable = true)
+ |-- fields: struct (nullable = true)
+ |    |-- _size: long (nullable = true)
+

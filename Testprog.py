@@ -79,22 +79,15 @@ s1 = SparseVector(5,[0,1,2],[-1,1,1])
 s2 = SparseVector(4,[1,3],[-4,1])
 d1 = Vectors.dense([1,0,1,0])
 d2 = Vectors.dense([0,1,0,1])
+S = [s1,s2]
 
-df = sqlContext.createDataFrame([Row(indx=0,v1=s1,v2=s2),Row(indx=1,v1=s2,v2=s2)])
+
+
+df = sqlContext.createDataFrame([Row(indx=0,v1=d1,v2=d2),Row(indx=1,v1=d2,v2=d2)])
 df.show()
 
-df2 = sqlContext.createDataFrame([Row(indx=1,v3=s1,v4=s1)])
-print df.dtypes
-    
-
-print createDenseVector(s1)
-joinedDf = df.join(df2,df["indx"] == df2["indx"])
-print joinedDf.dtypes
-diffDf = joinedDf.select(absSubUDF(joinedDf["v1"],joinedDf["v3"]))
-diffDf.show(truncate=False)
-
-extraDf = df
-extraDf.show(truncate=False)
+rdd = df.rdd
+print rdd.collect()
 #df = sqlContext.createDataFrame(Row(first_vec=s1,last_vec=s2), ("first_vec", "last_vec"))
 #df.show(truncate=False)
 

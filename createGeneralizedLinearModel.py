@@ -130,12 +130,12 @@ filteredVirkData = (virkData.filter( (virkData["sammensatStatus"] == "aktiv") | 
 
 #some intital cleaning
 minYear = virkData.groupBy().min("stiftelsesAar").collect()[0]
-print minYear
+#print minYear
 
 labeledDF = (filteredVirkData.select(filteredVirkData["*"],createLabelUdf(filteredVirkData["sammensatStatus"]).alias("label"))
             .drop(filteredVirkData["sammensatStatus"])
             )
-print labeledDF.dtypes
+#print labeledDF.dtypes
 
 pivotFeaturesTemp = createPivotDataset(labeledDF)
 columns = ["nPenheder","antalAnsatte","stiftelsesAar"]
