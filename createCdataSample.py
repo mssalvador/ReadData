@@ -7,14 +7,20 @@ Created on Jun 20, 2016
 from pyspark import SparkContext
 from pyspark.sql import SQLContext,Row,DataFrameWriter,DataFrameReader
 from pyspark.rdd import RDD
+import sys
 
 
 sc = SparkContext("local[8]","regnData")
 sqlContext = SQLContext(sc)
-fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
+fileStr = ""
+
+if len(sys.argv) == 0:
+    fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata/cdata-permanent.json"
+else
+    fileStr = sys.argv[1]
 
 
-dataF = sqlContext.read.json(fileStr+"/cdata-permanent.json")
+dataF = sqlContext.read.json()
 virksomhedsData =  dataF.filter(dataF._type == 'virksomhed').select(dataF['_source']["Vrvirksomhed"].alias("virksomhed"))
 virksomhedsData.printSchema()
 print dataF.count()
