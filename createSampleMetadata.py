@@ -109,7 +109,7 @@ if __name__ == '__main__':
     
     virkDataDf = virkDataTemp.select( virkDataTemp["metadata"]["antalPenheder"].alias("nPenheder")
                                      ,virkDataTemp["metadata"]["nyesteAarsbeskaeftigelse"]["intervalKodeAntalAnsatte"].alias("aarsbeskfansat")
-                                     #,virkDataTemp["metadata"]["nyesteBibranche1"]["branchekode"].alias("branchekode1")   
+                                     ,virkDataTemp["metadata"]["nyesteBibranche1"]["branchekode"].alias("branchekode1")   
                                      #,virkDataTemp["metadata"]["nyesteBibranche1"]["branchetekst"].alias("branchetekst1")
                                      #,virkDataTemp["metadata"]["nyesteBibranche2"]["branchekode"].alias("branchekode2")
                                      #,virkDataTemp["metadata"]["nyesteBibranche2"]["branchetekst"].alias("branchetekst2")
