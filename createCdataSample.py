@@ -10,17 +10,17 @@ from pyspark.rdd import RDD
 import sys
 
 
-sc = SparkContext("local[8]","regnData")
+sc = SparkContext(appName="regnData")
 sqlContext = SQLContext(sc)
 fileStr = ""
 
 if len(sys.argv) == 0:
-    fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata/cdata-permanent.json"
+    fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
 else:
     fileStr = sys.argv[1]
 
 
-dataF = sqlContext.read.json(fileStr)
+dataF = sqlContext.read.json(fileStr+"/cdata-permanent.json")
 virksomhedsData =  dataF.filter(dataF._type == 'virksomhed').select(dataF['_source']["Vrvirksomhed"].alias("virksomhed"))
 virksomhedsData.printSchema()
 print(dataF.count())
