@@ -47,7 +47,7 @@ def getStrings(col):
 getStrings = udf(getStrings,StringType())
 
 def extractStatus(col):
-    return sub("\s+",'',lower(col))
+    return sub("\s+",'',col.lower())
 
 extractStatusUDF = udf(extractStatus,StringType())
 

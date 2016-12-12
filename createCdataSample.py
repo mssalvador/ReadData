@@ -10,7 +10,7 @@ from pyspark.rdd import RDD
 import sys
 
 
-sc = SparkContext("local[8]","regnData")
+sc = SparkContext("local[8]","regnData",app)
 sqlContext = SQLContext(sc)
 fileStr = ""
 
