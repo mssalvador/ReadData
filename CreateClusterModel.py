@@ -3,28 +3,12 @@ Created on Aug 19, 2016
 
 @author: svanhmic
 '''
-import numpy as np
-import sys
-import itertools
-from string import lower
-reload(sys)
-sys.setdefaultencoding('utf-8')
 
 from pyspark import SQLContext
 from pyspark import SparkContext
-from pyspark.sql import DataFrameWriter,Row
-from pyspark.sql.types import StringType, ArrayType, StructField, StructType,\
-    IntegerType,FloatType
-from pyspark.sql.functions import explode, udf,coalesce,split,\
-    mean,log, lit
-from pyspark.mllib.linalg import SparseVector, VectorUDT, Vectors
-from pyspark.ml.tuning import CrossValidator
+from pyspark.sql.functions import mean, lit
 from pyspark.ml.clustering import KMeans
-from pyspark.ml import Pipeline
 from pyspark.ml.feature import VectorAssembler, StandardScaler
-from re import findall, sub
-import matplotlib.pyplot as plt 
-import matplotlib.mlab as mlab
 
 
 fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
