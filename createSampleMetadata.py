@@ -111,13 +111,13 @@ if __name__ == '__main__':
     virkDataDf = virkDataTemp.select( virkDataTemp["metadata"]["antalPenheder"].alias("nPenheder")
                                      ,virkDataTemp["metadata"]["nyesteAarsbeskaeftigelse"]["intervalKodeAntalAnsatte"].alias("aarsbeskfansat")
                                      ,virkDataTemp["metadata"]["nyesteBibranche1"]["branchekode"].alias("branchekode1")   
-                                     #,virkDataTemp["metadata"]["nyesteBibranche1"]["branchetekst"].alias("branchetekst1")
-                                     #,virkDataTemp["metadata"]["nyesteBibranche2"]["branchekode"].alias("branchekode2")
-                                     #,virkDataTemp["metadata"]["nyesteBibranche2"]["branchetekst"].alias("branchetekst2")
-                                     #,virkDataTemp["metadata"]["nyesteBibranche3"]["branchekode"].alias("branchekode3")
-                                     #,virkDataTemp["metadata"]["nyesteBibranche3"]["branchetekst"].alias("branchetekst3")                                     
-                                     #,virkDataTemp["metadata"]["nyesteHovedbranche"]["branchekode"].alias("hovedbranchekode")
-                                     #,virkDataTemp["metadata"]["nyesteStatus"]["statuskode"].alias("statuskode")
+                                     ,virkDataTemp["metadata"]["nyesteBibranche1"]["branchetekst"].alias("branchetekst1")
+                                     ,virkDataTemp["metadata"]["nyesteBibranche2"]["branchekode"].alias("branchekode2")
+                                     ,virkDataTemp["metadata"]["nyesteBibranche2"]["branchetekst"].alias("branchetekst2")
+                                     ,virkDataTemp["metadata"]["nyesteBibranche3"]["branchekode"].alias("branchekode3")
+                                     ,virkDataTemp["metadata"]["nyesteBibranche3"]["branchetekst"].alias("branchetekst3")                                     
+                                     ,virkDataTemp["metadata"]["nyesteHovedbranche"]["branchekode"].alias("hovedbranchekode")
+                                     ,virkDataTemp["metadata"]["nyesteStatus"]["statuskode"].alias("statuskode")
                                      ,virkDataTemp["metadata"]["nyesteVirksomhedsform"]["langBeskrivelse"].alias("langBeskrivelse")
                                      ,virkDataTemp["metadata"]["nyesteVirksomhedsform"]["virksomhedsformkode"].alias("virksomhedsformkode")
                                      ,virkDataTemp["metadata"]["sammensatStatus"].alias("sammensatStatus")
@@ -127,32 +127,32 @@ if __name__ == '__main__':
                                      ,virkDataTemp["brancheAnsvarskode"]
                                      ,virkDataTemp["reklamebeskyttet"].cast('integer').alias("reklamebeskyttet")
                                      )
-    #print virkDataDf.dtypes
+    print(virkDataDf.dtypes) 
     #virkDataDf.show(truncate=False)
     
     IndexedVirkDf = (virkDataDf.select(virkDataDf["cvrnummer"]
                                        ,virkDataDf["nPenheder"]
                                        ,extractNumberUDF(virkDataDf["aarsbeskfansat"] ).alias("antalAnsatte")
-                                       #,getStrings(virkDataDf["branchekode1"]).alias("branchekode1")
-                                       #,getStrings(virkDataDf["branchekode2"]).alias("branchekode2")
-                                       #,getStrings(virkDataDf["branchekode3"]).alias("branchekode3")
-                                       #,getStrings(virkDataDf["hovedbranchekode"]).alias("hovedbranchekode")
-                                       #,getStrings(virkDataDf["statuskode"]).alias("statuskode")
+                                       ,getStrings(virkDataDf["branchekode1"]).alias("branchekode1")
+                                       ,getStrings(virkDataDf["branchekode2"]).alias("branchekode2")
+                                       ,getStrings(virkDataDf["branchekode3"]).alias("branchekode3")
+                                       ,getStrings(virkDataDf["hovedbranchekode"]).alias("hovedbranchekode")
+                                       ,getStrings(virkDataDf["statuskode"]).alias("statuskode")
                                        ,getStrings(virkDataDf["langBeskrivelse"]).alias("virksomhedsBeskrivelse")
                                        ,getStrings(virkDataDf["brancheAnsvarskode"]).alias("brancheAnsvarskode")
                                        ,extractStatusUDF(virkDataDf["sammensatStatus"]).alias("sammensatStatus")
-                                       #,virkDataDf["virksomhedsformkode"]
-                                       #,virkDataDf["stiftelsesDato"]
+                                       ,virkDataDf["virksomhedsformkode"]
+                                       ,virkDataDf["stiftelsesDato"]
                                        ,extractYearfromVirkUDF(virkDataDf["stiftelsesDato"]).alias("stiftelsesAar")                                   
                                        ,extractVirkStatusUDF(virkDataDf["virksomhedsstatus"]).alias("virksomhedsstatus")
                                        ,virkDataDf["reklamebeskyttet"]
                                        )).rdd.zipWithIndex().map(lambda x: getIndex(x))
                                        
-    cleanedVirkDf = sqlContext.createDataFrame(IndexedVirkDf,["Index","cvrnummer","nPenheder","antalAnsatte"#,"branchekode1","branchekode2","branchekode3","hovedbranchekode"
-                                                              #,"statuskode"
+    cleanedVirkDf = sqlContext.createDataFrame(IndexedVirkDf,["Index","cvrnummer","nPenheder","antalAnsatte","branchekode1","branchekode2","branchekode3","hovedbranchekode"
+                                                              ,"statuskode"
                                                               ,"virksomhedsBeskrivelse"
                                                               ,"brancheAnsvarskode","sammensatStatus"
-                                                              #,"virksomhedsformkode"
+                                                              ,"virksomhedsformkode"
                                                               ,"stiftelsesAar","virksomhedsstatus","reklamebeskyttet"])
     
     #virkData.printSchema()

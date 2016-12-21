@@ -5,25 +5,27 @@ This program extracts and cleans metadata
 
 @author: svanhmic
 '''
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
+import numpy as np
 
-from pyspark import SQLContext
-from pyspark import SparkContext
+from pyspark.sql import SparkSession
 from pyspark.sql import Row
 from pyspark.sql.types import StringType
-from pyspark.sql.functions import explode, udf
-from pyspark.mllib.linalg import VectorUDT, Vectors
-from pyspark.mllib.linalg.distributed import RowMatrix, IndexedRowMatrix,\
-    IndexedRow
+from pyspark.sql import functions as F
+from pyspark.ml.linalg import VectorUDT, Vectors
+from pyspark.ml.feature import StringIndexer,StringIndexerModel
 
 fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
 hdfsfiles = "hdfs://biml-odin/user/svanhmic/data/CVR"
 virksomheder = "/c1p_virksomhed.json"
+alleVirksomheder = "/AlleDatavirksomheder.json"
 produktionsenhed = "/c1p_produktionsenhed.json"
 deltager = "/c1p_deltager.json"
 onePercent = "/c1p.json"
 
-sc = SparkContext(appName="partionedCvr")
-sqlContext = SQLContext(sc)
+
 
 def columnsToList(row):
     """ Converts a flat dataframe with columns to a data frame with one column with lists as rows.
@@ -38,12 +40,7 @@ def columnsToList(row):
             A row containing one column containing a list, where each element in the list is an column from the input row
     
     """
-    featlist=[x for x in row]
-    for (i,f) in enumerate(featlist):
-        if f == None:
-            featlist[i] = None
-        elif isinstance(f,str):
-            featlist[i] = str(f)
+    featlist=[None if x == None else x for x in row]
     return Row(featlist = featlist)
 
 def bagOfWords(rawFeats, bagDict,lenOfDicts):
@@ -81,23 +78,37 @@ def bagOfWordsGenerator(broadcastDictOfWords):
     """
     
     leng = len(broadcastDictOfWords.value)
-    return udf(lambda x: bagOfWords(x,broadcastDictOfWords,leng),VectorUDT())
+    return F.udf(lambda x: bagOfWords(x,broadcastDictOfWords,leng),VectorUDT())
 
 
-columnsToListUDF = udf(columnsToList,StringType())
+columnsToListUDF = F.udf(columnsToList,StringType())
     
 if __name__ == '__main__':
-    rawData = sqlContext.read.format("json").load(fileStr+onePercent) # loads the subsample of virksomheder
-    virkData = (rawData
-                .where(rawData["_source"]["Vrvirksomhed"].isNotNull())
-                .select(rawData["_source"]["Vrvirksomhed"].alias("virksomhed"))
-                )
-    virkMetaData = (virkData.select(virkData["virksomhed"]["virksomhedMetadata"].alias("virkmetadata"))).cache() #exectracts metadata
+    spark = (SparkSession
+             .builder
+             .appName("createMetaData")
+             .getOrCreate())
+    
+    virkData = (spark
+                .read
+                .format("json")
+                .load(fileStr+alleVirksomheder)) # loads the subsample of virksomheder
+    #virkData.printSchema()
+    
+    #Used when we want the raw data to be parsed
+    #virkData = (rawData
+    #            .where(rawData["_source"]["Vrvirksomhed"].isNotNull())
+    #            .select(rawData["_source"]["Vrvirksomhed"].alias("virksomhed"))
+    #            )
+    virkMetaData = (virkData
+                    .select(virkData["virksomhed"]["cvrNummer"].alias("cvrNummer"),virkData["virksomhed"]["virksomhedMetadata"].alias("virkmetadata"))
+                    .cache()) #exectracts metadata
     #virkNulldf = virkMetaData.select(virkMetaData["virkmetadata"].isNull().alias("isnull"),virkMetaData["virkmetadata"])
-    #virkNulldf.printSchema()
+    #virkMetaData.printSchema()
     
     #normalize the entire metadataset
-    virkDataDf = virkMetaData.select( virkMetaData["virkmetadata"]["antalPenheder"].alias("nPenheder")
+    virkDataDf = virkMetaData.select(virkMetaData["cvrNummer"]
+                                     ,virkMetaData["virkmetadata"]["antalPenheder"].alias("nPenheder")
                                      ,virkMetaData["virkmetadata"]["nyesteAarsbeskaeftigelse"]["aar"].alias("aarsbeskfaar")
                                      ,virkMetaData["virkmetadata"]["nyesteAarsbeskaeftigelse"]["intervalKodeAntalAarsvaerk"].alias("aarsbeskfaarsvrk")
                                      ,virkMetaData["virkmetadata"]["nyesteAarsbeskaeftigelse"]["intervalKodeAntalAnsatte"].alias("aarsbeskfansat")
@@ -122,7 +133,7 @@ if __name__ == '__main__':
                                      ,virkMetaData["virkmetadata"]["nyesteBibranche3"]["branchetekst"].alias("branchetekst3")                                     
                                      ,virkMetaData["virkmetadata"]["nyesteHovedbranche"]["branchekode"].alias("hovedbranchekode")
                                      ,virkMetaData["virkmetadata"]["nyesteHovedbranche"]["branchetekst"].alias("hovedbranchetekst")
-                                     ,explode(virkMetaData["virkmetadata"]["nyesteKontaktoplysninger"]).alias("kontakt")
+                                     ,F.explode(virkMetaData["virkmetadata"]["nyesteKontaktoplysninger"]).alias("kontakt")
                                      ,virkMetaData["virkmetadata"]["nyesteKvartalsbeskaeftigelse"]["aar"].alias("kvarbeskfaar")
                                      ,virkMetaData["virkmetadata"]["nyesteKvartalsbeskaeftigelse"]["kvartal"].alias("kvarbeskfkvart")
                                      ,virkMetaData["virkmetadata"]["nyesteKvartalsbeskaeftigelse"]["intervalKodeAntalAarsvaerk"].alias("kvarbeskfaarsvrk")
@@ -144,52 +155,78 @@ if __name__ == '__main__':
                                      ,virkMetaData["virkmetadata"]["stiftelsesDato"].alias("stiftelsesDato")
                                      ,virkMetaData["virkmetadata"]["virkningsDato"].alias("virkningsDato")
                                      )
-    #virkDataDf.show(truncate=False)
-    #print virkDataDf.count()
+    ##virkDataDf.show()
+    takeOutMetaDataCols = ["kvarbeskfaar","kvarbeskfkvart","kvarbeskfaarsvrk"
+                           ,"kvarbeskfansat","kvarbeskfopdat","mndbeskfaar","mndbeskfkvart"
+                           ,"mndbeskfaarsvrk","mndbeskfansat","mndbeskfopdat","aarsVirkDataDf"
+                           ,"hovedbranchetekst","formOpdateret","kommunenavn","branchetekst1"
+                           ,"branchetekst2","branchetekst3","by","navn","kontakt","vejnavn"]
+    aarsVirkDataCols = [x for x in virkDataDf.columns if x not in takeOutMetaDataCols] 
+    ##print(aarsVirkDataCols)
+    #virkDataDf.printSchema()
     
-    oneColsVirkDf = virkDataDf.rdd.map(lambda x:columnsToList(x)).toDF()
-    #print type(oneColsVirkDf)
-    #oneColsVirkDf.show(truncate=False)
-    #for i in oneColsVirkDf.first():
-    #    print type(i)
+    aarsVirkDataDf = (virkDataDf
+                      .filter(virkDataDf["kvarbeskfaar"].isNull() & virkDataDf["mndbeskfaar"].isNull())
+                      .select([F.col(x) for x in aarsVirkDataCols])
+                      .fillna("ukendt",["by","landkode","vejnavn","navn","ansvarligDataleverandoer","kortBeskrivelse","sammensatStatus"]))
+    #aarsVirkDataDf.show(truncate=False)
+    #print(virkDataDf.count())
+    #print(aarsVirkDataDf.count())
     
-    explodedVirkMetaData = oneColsVirkDf.select(explode(oneColsVirkDf["featlist"]).alias("featlist")).distinct()
+    #Transform kort beskrivelse 
+    beskrivelseIndexer = StringIndexer(inputCol="kortBeskrivelse",outputCol="indexKortBeskrivelse")
+    beskrivelseIndexerModel = beskrivelseIndexer.fit(aarsVirkDataDf)
+    beskrivelseDf = beskrivelseIndexerModel.transform(aarsVirkDataDf)
+    
+    #Transform ansvarligDataleverandoer
+    dataleverandorIndexer = StringIndexer(inputCol="ansvarligDataleverandoer",outputCol="indexKortDataleverandoer")
+    dataleverandorIndexerModel = dataleverandorIndexer.fit(beskrivelseDf)
+    datalevDf = dataleverandorIndexerModel.transform(beskrivelseDf)
+    
+    #Transform landekode
+    landIndexer = StringIndexer(inputCol="landkode",outputCol="indexLandkode")
+    landIndexerModel = landIndexer.fit(datalevDf)
+    landDf = landIndexerModel.transform(datalevDf)
+    
+    landDf.show(truncate=False)
+    
+    ##explodedVirkMetaData = oneColsVirkDf.select(explode(oneColsVirkDf["featlist"]).alias("featlist")).distinct()
     #explodedVirkMetaData.show(truncate=False)
-    print "explodedVirkMetaData length", len(explodedVirkMetaData.collect())
+    ##print("explodedVirkMetaData length", len(explodedVirkMetaData.collect()))
     
-    virkMetaDataDict = (explodedVirkMetaData
-                        .rdd
-                        .map(lambda l: l["featlist"])
-                        .zipWithIndex()
-                        .collectAsMap())
+    ##virkMetaDataDict = (explodedVirkMetaData
+    ##                    .rdd
+    ##                    .map(lambda l: l["featlist"])
+    ##                    .zipWithIndex()
+    ##                    .collectAsMap())
     
-    broadcastVirkMetaDataDict = sc.broadcast(virkMetaDataDict)
+    ##broadcastVirkMetaDataDict = sc.broadcast(virkMetaDataDict)
     #print virkMetaDataDict
     
     #TEST example to test bag of words generator
     #test = [u'hej',u'med',u'dig',u'hej',u'hej']
     #testDicts_broadcast = {'hej':0,'med':1,'dig':2}
     
-    bagOfWordsUDF = bagOfWordsGenerator(broadcastVirkMetaDataDict)
-    featuresDF = oneColsVirkDf.select(bagOfWordsUDF(oneColsVirkDf["featlist"]).alias("features"))
+    ##bagOfWordsUDF = bagOfWordsGenerator(broadcastVirkMetaDataDict)
+    ##featuresDF = oneColsVirkDf.select(bagOfWordsUDF(oneColsVirkDf["featlist"]).alias("features"))
     #normedFeatures = (featuresDF
     #                  .rdd
     #                  .map(lambda fet: (float(fet["features"].norm(2)),fet["features"]))
     #                  .toDF(["norm","features"])) # computes the norm for each vector
     
-    Rmatrix = RowMatrix(featuresDF.rdd.map(lambda row: row["features"]))
+    ##Rmatrix = RowMatrix(featuresDF.rdd.map(lambda row: row["features"]))
     
-    IndexedVectors = featuresDF.rdd.map(lambda row: row["features"]).zipWithIndex().map(lambda x: IndexedRow(x[1],x[0]))
-    IndexedRowMat = IndexedRowMatrix(IndexedVectors)
-    CoordinateMat = IndexedRowMat.toCoordinateMatrix()
-    transposed_CoordinateMat = CoordinateMat.transpose()
-    transposed_IndexRowMat = transposed_CoordinateMat.toIndexedRowMatrix()
-    columnSims = transposed_IndexRowMat.columnSimilarities().toIndexedRowMatrix()
+    ##IndexedVectors = featuresDF.rdd.map(lambda row: row["features"]).zipWithIndex().map(lambda x: IndexedRow(x[1],x[0]))
+    ##IndexedRowMat = IndexedRowMatrix(IndexedVectors)
+    ##CoordinateMat = IndexedRowMat.toCoordinateMatrix()
+    ##transposed_CoordinateMat = CoordinateMat.transpose()
+    ##transposed_IndexRowMat = transposed_CoordinateMat.toIndexedRowMatrix()
+    ##columnSims = transposed_IndexRowMat.columnSimilarities().toIndexedRowMatrix()
     
-    columSimsRDD = columnSims.rows
-    print type(columSimsRDD)
-    print "cosine similarities rows: ",columnSims.rows
-    print "cosine similarities columns: ",columnSims.columns
+    ##columSimsRDD = columnSims.rows
+    ##print(type(columSimsRDD))
+    ##print("cosine similarities rows: ",columnSims.rows)
+    ##print("cosine similarities columns: ",columnSims.columns)
     #print cosSimiliarity.numCols()
     #print cosSimiliarity.numRows()
     #print type(cosSimiliarity)
