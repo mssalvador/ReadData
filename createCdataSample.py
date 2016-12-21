@@ -5,16 +5,17 @@ Created on Jun 20, 2016
 '''
 
 from pyspark import SparkContext
-from pyspark.sql import SQLContext,SparkSession,Row,DataFrameWriter,DataFrameReader
+from pyspark.sql import SQLContext,Row,DataFrameWriter,DataFrameReader
 from pyspark.rdd import RDD
 import sys
 
-spark = (SparkSession
-             .builder
-             .appName("regnData")
-             .getOrCreate())
-#sc = SparkContext(appName="regnData")
-#sqlContext = SQLContext(sc)
+#Applicable in Spark 2.0 >=
+#spark = (SparkSession
+#             .builder
+#             .appName("regnData")
+#             .getOrCreate())
+sc = SparkContext(appName="regnData")
+sqlContext = SQLContext(sc)
 fileStr = ""
 
 if len(sys.argv) == 0:
@@ -23,7 +24,7 @@ else:
     fileStr = sys.argv[1]
 
 
-dataF = spark.read.json(fileStr+"/cdata-permanent.json")
+dataF = sqlContext.read.json(fileStr+"/cdata-permanent.json")
 virksomhedsData =  dataF.filter(dataF._type == 'virksomhed').select(dataF['_source']["Vrvirksomhed"].alias("virksomhed"))
 virksomhedsData.printSchema()
 print(dataF.count())
