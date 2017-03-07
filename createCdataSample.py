@@ -17,16 +17,21 @@ import sys
 sc = SparkContext(appName="regnData")
 sqlContext = SQLContext(sc)
 fileStr = ""
-
-if len(sys.argv) == 0:
-    fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
+if len(sys.argv) == 1:
+    fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata/cdata-permanent.json"
 else:
-    fileStr = sys.argv[1]
+    fileStr = sys.argv[1]    
 
 
-dataF = sqlContext.read.json(fileStr+"/cdata-permanent.json")
+dataF = sqlContext.read.json(fileStr)
+dataF.select(dataF["_type"]).distinct().show()
+#print(dataF.columns)
+#dataF.printSchema()
 virksomhedsData =  dataF.filter(dataF._type == 'virksomhed').select(dataF['_source']["Vrvirksomhed"].alias("virksomhed"))
-virksomhedsData.printSchema()
+deltagerData = dataF.filter(dataF._type == 'deltager').select(dataF['_source']["Vrdeltagerperson"].alias("deltager"))
+prodData = dataF.filter(dataF._type == 'produktionsenhed').select(dataF['_source']["VrproduktionsEnhed"].alias("prodenhed"))
+
+#virksomhedsData.printSchema()
 #print(dataF.count())
 #types = dataF.select(dataF._type).distinct().collect()
 
@@ -34,7 +39,6 @@ virksomhedsData.printSchema()
 #print virkNumb.count()
 #print virkNumb.distinct().count()
 #print virkNumb.take(4)
-
 #for r in types:
 #    smallSet = dataF.filter(dataF._type == str(r["_type"])).sample(False,0.01,42) # collect small sample 
 #    smallSet.write.json(fileStr+"/c1p_"+str(r["_type"])+".json",mode="overwrite")
@@ -47,4 +51,6 @@ virksomhedsData.printSchema()
 #              )
 #smallerset.write.json(fileStr+"/AlleDatavirksomheder.json",mode="overwrite")
 virksomhedsData.write.json(fileStr+"/AlleDatavirksomheder.json",mode="overwrite")
-virksomhedsData.write.parquet(fileStr+"/AlleDatavirksomheder",mode="overwrite")
+deltagerData.write.json(fileStr+"/AlleDeltager.json",mode="overwrite")
+prodData.write.json(fileStr+"/AlleProduktionEnheder.json",mode="overwrite")
+#virksomhedsData.write.parquet(fileStr+"/AlleDatavirksomheder",mode="overwrite")

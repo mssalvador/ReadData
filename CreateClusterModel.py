@@ -123,5 +123,5 @@ kmeans = KMeans(k=2, maxIter=10,featuresCol="scaledfeatures",initMode="random")
 #print bestFit[0] , bestFit[1]
 kmeans.setK(params[1])
 clusters = kmeans.fit(scaledFeatures)
-kmeans.write().overwrite().save(modelPath+"Kmeans_Cvr")
+kmeans().overwrite().save(modelPath+"Kmeans_Cvr")
 clusters.write().overwrite().save(modelPath+"Kmeans_Cvr_Model")

@@ -158,5 +158,5 @@ if __name__ == '__main__':
     #virkData.printSchema()
     
     #data is pivoted doing the "bag of words" and afterwards doing an imputer mean which substitutes a mean value for a column in an null value element of that col.
-    
+    cleanedVirkDf.show()
     cleanedVirkDf.write.json(fileStr+"/virksomhedersMetadata.json",mode="overwrite")
