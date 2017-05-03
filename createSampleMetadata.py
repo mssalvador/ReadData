@@ -3,8 +3,13 @@ Created on Aug 24, 2016
 
 @author: svanhmic
 '''
-import numpy as np
+import os
 import sys
+
+print(sys.executable)
+
+
+import numpy as np
 
 from pyspark import SQLContext
 from pyspark import SparkContext
@@ -95,11 +100,11 @@ def getIndex(rdd):
 if __name__ == '__main__':
     
     if len(sys.argv) == 1:
-        fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"+alleVirksomheder
+        fileStr = "/home/svanhmic/workspace/data/DABAI/sparkdata/json"
     else:
         fileStr = sys.argv[1]
     
-    virkData = sqlContext.read.format("json").load(fileStr) # loads the subsample of virksomheder  alleVirksomheder
+    virkData = sqlContext.read.format("json").load(fileStr+alleVirksomheder) # loads the subsample of virksomheder  alleVirksomheder
     virkData.printSchema()
     virkDataTemp = virkData.select(virkData["virksomhed"]["virksomhedMetadata"].alias("metadata")
                                    ,virkData["virksomhed"]["virksomhedsstatus"].alias("virksomhedsstatus")

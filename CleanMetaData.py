@@ -17,7 +17,7 @@ from pyspark.sql import functions as F
 from pyspark.ml.linalg import VectorUDT, Vectors
 from pyspark.ml.feature import StringIndexer,StringIndexerModel
 
-fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
+fileStr = "/home/svanhmic/workspace/data/sparkdata/json"
 hdfsfiles = "hdfs://biml-odin/user/svanhmic/data/CVR"
 virksomheder = "/c1p_virksomhed.json"
 alleVirksomheder = "/AlleDatavirksomheder.json"

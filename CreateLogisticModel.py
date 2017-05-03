@@ -27,9 +27,9 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 
 
-fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
-modelPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/"
-scalerPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/StandardScalaer"
+fileStr = "/home/svanhmic/workspace/data/DABAI/sparkdata/json"
+modelPath = "/home/svanhmic/workspacedata/DABAI/models/"
+scalerPath = "/home/svanhmic/workspace/DABAI/models/StandardScalaer"
 
 sc = SparkContext("local[8]","logisticModel")
 sqlContext = SQLContext(sc)

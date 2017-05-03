@@ -224,6 +224,6 @@ def onePass(sc,df,params={'n_clusters':(2,3),},featureCol="features",idCol="cvrN
 if __name__ == '__main__':
     sc = SparkContext(appName="regnData")
     sqlContext = SQLContext(sc)
-    PATH = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata/"
+    PATH = "/home/svanhmic/workspace/data/DABAI/sparkdata/json"
     
     

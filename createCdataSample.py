@@ -17,13 +17,14 @@ import sys
 sc = SparkContext(appName="regnData")
 sqlContext = SQLContext(sc)
 fileStr = ""
+jsonFile = "cdata-permanent.json"
 if len(sys.argv) == 1:
-    fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata/cdata-permanent.json"
+    fileStr = "/home/svanhmic/workspace/data/DABAI/sparkdata/json/"
 else:
     fileStr = sys.argv[1]    
 
 
-dataF = sqlContext.read.json(fileStr)
+dataF = sqlContext.read.json(fileStr+jsonFile)
 dataF.select(dataF["_type"]).distinct().show()
 #print(dataF.columns)
 #dataF.printSchema()

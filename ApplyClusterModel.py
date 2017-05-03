@@ -26,9 +26,9 @@ import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 
 
-fileStr = "/home/svanhmic/workspace/Python/Erhvervs/data/cdata"
-modelPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/"
-scalerPath = "/home/svanhmic/workspace/Python/Erhvervs/Models/StandardScalaer"
+fileStr = "/home/svanhmic/workspace/data/DABAI/sparkdata/json"
+modelPath = "/home/svanhmic/workspacedata/DABAI/models/"
+scalerPath = "/home/svanhmic/workspace/DABAI/models/StandardScalaer"
 virksomheder = "/c1p_virksomhed.json"
 alleVirksomheder = "/AlleDatavirksomheder.json"
 produktionsenhed = "/c1p_produktionsenhed.json"
