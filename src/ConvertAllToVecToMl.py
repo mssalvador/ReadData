@@ -3,7 +3,6 @@ Created on Feb 13, 2017
 
 @author: svanhmic
 '''
-from numexpr.necompiler import double
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol
 from pyspark.ml import Transformer
 from pyspark.ml.linalg import Vectors, VectorUDT
@@ -33,7 +32,7 @@ class ConvertAllToVecToMl(Transformer,HasInputCol,HasOutputCol):
     def _transform(self, dataset):
 
         def f(s):
-            return Vectors.dense([double(x) for x in s.toArray()])
+            return Vectors.dense([float(x) for x in s.toArray()])
         
 
         t = VectorUDT()

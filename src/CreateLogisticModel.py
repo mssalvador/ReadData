@@ -32,7 +32,7 @@ modelPath = "/home/svanhmic/workspacedata/DABAI/models/"
 scalerPath = "/home/svanhmic/workspace/DABAI/models/StandardScalaer"
 
 sc = SparkContext("local[8]","logisticModel")
-sqlContext = SQLContext(sc)
+sql_Context = SQLContext(sc)
 
 
 
@@ -51,7 +51,7 @@ def createLabel(col):
      
 createLabelUdf = F.udf(createLabel, IntegerType())
 
-virkData = sqlContext.read.format("json").load(fileStr+"/virksomhedersMetadata.json").cache() # loads the subsample of virksomheder  alleVirksomheder
+virkData = sql_Context.read.format("json").load(fileStr + "/virksomhedersMetadata.json").cache() # loads the subsample of virksomheder  alleVirksomheder
 virkData.show(1)
 #print virkData.columns
 # some summery of whats in virk status
