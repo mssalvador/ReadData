@@ -15,7 +15,7 @@ __pycache__/
 # Distribution / packaging
 notebooks/Presentation_folder
 
-.idea
+.idea/
 spark-warehouse
 bin
 metastore_db
